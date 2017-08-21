@@ -215,3 +215,7 @@ The image brightness can be normalized using something like `CLAHE` algorithm, s
 Once a vehicle's position is more or less tracked, then do a more exact detection, extract the "visual" parameters of the vehicle, and keep using those parameters to match its movements in subsequent frames.
 
 That's just theory, I've yet to come up with a practical algorithm. However, the idea is to "remember" the signature of a vehicle and use it in subsequent frames.
+
+**4. Reject bounding boxes smaller than a particular threshold**
+
+A lot of spurious bounding boxes were smaller than reasonable, and can be filtered out if they are smaller than a particular threshold.
