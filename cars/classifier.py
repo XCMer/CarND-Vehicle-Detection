@@ -1,8 +1,12 @@
 import numpy as np
+import os
+import pickle
 from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import GridSearchCV
 
 
 class CarsClassifier(object):
@@ -14,14 +18,25 @@ class CarsClassifier(object):
         self.test_score = None
         self.save_path = 'classifier_data.pickle'
 
+    def load_features(self, name, images, cache=True):
+        if os.path.exists(name + '_features.pickle') and cache:
+            with open(name + '_features.pickle', 'rb') as f:
+                return pickle.load(f)
+        else:
+            features = self.car_features.extract_features(images)
+            with open(name + '_features.pickle', 'wb') as f:
+                pickle.dump(features, f)
+
+            return features
+
     def train(self):
         # Load data
         cars = self.vehicle_data.get_cars_images()
         non_cars = self.vehicle_data.get_non_cars_images()
 
         # Load the images and extract features
-        cars_features = self.car_features.extract_features(cars)
-        non_cars_features = self.car_features.extract_features(non_cars)
+        cars_features = self.load_features('cars', cars, cache=True)
+        non_cars_features = self.load_features('non_cars', non_cars, cache=True)
 
         # Cast things and also create the target variables
         X = np.vstack((cars_features, non_cars_features)).astype(np.float64)

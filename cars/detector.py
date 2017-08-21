@@ -1,5 +1,8 @@
 import numpy as np
 import cv2
+from scipy.ndimage.measurements import label
+import collections
+import pickle
 
 
 class CarsDetector(object):
@@ -69,13 +72,13 @@ class CarsDetector(object):
                 subimg = cv2.resize(img_to_search[ytop:ytop + self.window, xleft:xleft + self.window], (64, 64))
 
                 # Get color features
-                # spatial_features = bin_spatial(subimg, size=spatial_size)
-                # hist_features = color_hist(subimg, nbins=hist_bins)
+                spatial_features = self.cars_features.get_bin_spatial(subimg)
+                hist_features = self.cars_features.get_color_histogram(subimg)[-1]
 
                 # Scale features and make a prediction
                 test_features = self.classifier.scaler.transform(
-                    np.hstack((patch_hog_features,)).reshape(1, -1))
-                # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
+                    np.concatenate((patch_hog_features, hist_features, spatial_features)).reshape(1, -1))
+                # test_features = self.classifier.scaler.transform(np.hstack((hist_features, spatial_features)).reshape(1, -1))
                 test_prediction = self.classifier.model.predict(test_features)
 
                 # Add boxes
@@ -86,3 +89,101 @@ class CarsDetector(object):
                     bboxes.append(((xbox_left, ytop_draw + self.ystart), (xbox_left + win_draw, ytop_draw + win_draw + self.ystart)))
 
         return bboxes
+
+
+class VideoCarsDetector(object):
+    def __init__(self, cars_detector, image_draw, shape, scales=(1.5,),
+                 save_heatmaps_to_file=False, load_heatmaps_from_file=False, save_heatmap_video=False):
+        self.cars_detector = cars_detector
+        self.image_draw = image_draw
+        self.shape = shape
+        self.savable_heatmaps = []
+        self.savable_heatmaps_current = 0
+        self.heatmaps = collections.deque(maxlen=10)
+        self.heatmap = None
+        self.save_heatmaps_to_file = save_heatmaps_to_file
+        self.load_heatmaps_from_file = load_heatmaps_from_file
+        self.save_heatmap_video = save_heatmap_video
+        self.scales = scales
+
+        # Load heatmaps from file
+        if self.load_heatmaps_from_file:
+            self.load_heatmaps()
+
+    def detect_cars_in_frame(self, img):
+        if self.load_heatmaps_from_file:
+            self.heatmaps.append(self.savable_heatmaps[self.savable_heatmaps_current])
+            self.savable_heatmaps_current += 1
+        else:
+            # STEP 1: Get bounding boxes
+            bboxes = []
+            for scale in self.scales:
+                bboxes += self.cars_detector.detect_cars(img, scale=scale)
+
+            # STEP 2: Add heatmap of the current frame
+            self.add_heatmap(bboxes)
+
+        # STEP 3: Update heatmap aggregate with thresholding
+        # applied to the last `n` heatmaps
+        self.update_heatmap()
+
+        # STEP 4: Put bounding boxes
+        output_bboxes = self.get_bounding_boxes()
+
+        # STEP 5: Draw boxes
+        if self.save_heatmap_video:
+            output_img = np.clip(255.0 * self.heatmap, 0, 255)
+            output_img = cv2.merge([output_img, output_img, output_img])
+        else:
+            output_img = self.image_draw.draw_boxes(img, output_bboxes)
+
+        return output_img
+
+    def add_heatmap(self, bboxes):
+        heatmap = np.zeros((self.shape[1], self.shape[0])).astype(np.float)
+        for box in bboxes:
+            x1 = box[0][1]
+            x2 = box[1][1]
+            y1 = box[0][0]
+            y2 = box[1][0]
+
+            heatmap[x1:x2, y1:y2] += 1
+
+        self.heatmaps.append(heatmap)
+
+        if self.save_heatmaps_to_file:
+            self.savable_heatmaps.append(heatmap)
+
+    def update_heatmap(self):
+        self.heatmap = np.sum(self.heatmaps, axis=0)
+
+        self.heatmap[self.heatmap <= 6.0 * 2.5] = 0
+
+    def get_bounding_boxes(self):
+        labels = label(self.heatmap)
+        bboxes = []
+        for car_number in range(1, labels[1] + 1):
+            # Find pixels with each car_number label value
+            nonzero = (labels[0] == car_number).nonzero()
+
+            # Identify x and y values of those pixels
+            nonzeroy = np.array(nonzero[0])
+            nonzerox = np.array(nonzero[1])
+
+            # Define a bounding box based on min/max x and y
+            bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+
+            # Draw the box on the image
+            bboxes.append(bbox)
+
+        return bboxes
+
+    def save_heatmaps(self):
+        if self.save_heatmaps_to_file:
+            with open('heatmaps.pickle', 'wb') as f:
+                pickle.dump(self.savable_heatmaps, f)
+
+    def load_heatmaps(self):
+        with open('heatmaps.pickle', 'rb') as f:
+            self.savable_heatmaps = pickle.load(f)
+            self.savable_heatmaps_current = 0

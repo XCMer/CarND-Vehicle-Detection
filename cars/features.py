@@ -78,6 +78,10 @@ class CarFeatures(object):
             for i in range(img.shape[2]):
                 channel_features.append(self.get_hog_features(img[:, :, i], vis=False, feature_vector=True))
 
-            features.append(np.ravel(channel_features))
+            all_features = np.ravel(channel_features)
+            all_features = np.concatenate((all_features, self.get_color_histogram(img)[-1], self.get_bin_spatial(img)))
+
+            # features.append(np.ravel(channel_features))
+            features.append(all_features)
 
         return features

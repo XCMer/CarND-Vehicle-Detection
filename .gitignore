@@ -2,5 +2,7 @@
 *.iml
 data/
 .DS_Store
-.DS_Store
 __pycache__
+cars_features.pickle
+non_cars_features.pickle
+heatmaps.pickle
