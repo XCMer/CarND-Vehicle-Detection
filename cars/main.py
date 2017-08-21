@@ -11,11 +11,10 @@ cars_classifier = classifier.CarsClassifier(cars_data, cars_features)
 cars_detector = detector.CarsDetector(cars_features, cars_classifier, (400, 656))
 image_draw = draw.ImageDraw()
 
-use_saved_heatmaps = False
 video_cars_detector = detector.VideoCarsDetector(cars_detector, image_draw, (1280, 728),
                                                  scales=(0.75, 1.0, 1.25, 1.5),
-                                                 save_heatmaps_to_file=not use_saved_heatmaps,
-                                                 load_heatmaps_from_file=use_saved_heatmaps,
+                                                 save_heatmaps_to_file=False,
+                                                 load_heatmaps_from_file=False,
                                                  save_heatmap_video=False)
 
 cars_classifier.load_model()

@@ -176,7 +176,11 @@ This has the same explanation as in section `4. Reliability of the detection`.
 
 If there are multiple cars close by, then they are detected as one unit. It's difficult to mitigate this, especially if both the cars are of the same color.
 
-**2. Fast moving vehicles**
+**2. Cars on the opposite side**
+
+The pipeline also often detects cars on the opposite side. If there's a group of cars on the other side, then it gets a unreasonably big detection.
+
+**3. Fast moving vehicles**
 
 A lot of my interpolation (keeping the last `10` frames) is to avoid false detections and to provide a stable detection.
 
@@ -184,11 +188,11 @@ However, if a car zooms by, then I might probably not detect it. It might show u
 
 A car flying by fast is also the one that we have to be the most aware about.
 
-**3. Billboards**
+**4. Billboards**
 
 If billboards have cars, then we'll detect that too, and can make an erroneous assumption about its position. I don't know the exact consequences of this, but depending on the algorithms we use, it might affect path planning.
 
-**4. Ghost heatmap**
+**5. Ghost heatmap**
 
 Since I sum up the last 10 frames, I can sometime get ghost detections on where the car "was", instead of where it "is" right now. And it can get worse as the speed of the passing by car increases.
 
